@@ -68,24 +68,32 @@ def extract_products(page) -> dict[str, dict]:
     return items
 
 
-def scrape_url(page, url: str) -> dict[str, dict]:
+def scrape_url(page, url: str, slug: str) -> dict[str, dict]:
     print(f"-> {url}", file=sys.stderr, flush=True)
     page.goto(url, timeout=90000, wait_until="domcontentloaded")
-    # Wait up to 45s for CF challenge to clear
     try:
         page.wait_for_function(
             "!/Just a moment|Sichere Verbindung|Nur einen Moment/.test(document.title)",
             timeout=45000,
         )
-    except Exception as e:
+    except Exception:
         print(f"WARN: CF wait timed out — title={page.title()!r}", file=sys.stderr)
-    # Give product cards time to render
     try:
         page.wait_for_load_state("networkidle", timeout=15000)
     except Exception:
         pass
     time.sleep(2)
+    print(f"   title: {page.title()!r}", file=sys.stderr)
+    # Dump HTML for debugging (artifact-uploaded)
+    Path(f"debug-{slug}.html").write_text(page.content(), encoding="utf-8")
     items = extract_products(page)
+    # Probe: how many anchors total, how many with /de/ prefix
+    counts = page.evaluate(
+        "() => ({anchors: document.querySelectorAll('a').length, "
+        "de_anchors: document.querySelectorAll('a[href*=\"/de/\"]').length, "
+        "html_size: document.documentElement.outerHTML.length})"
+    )
+    print(f"   counts: {counts}", file=sys.stderr)
     print(f"   -> {len(items)} products", file=sys.stderr, flush=True)
     return items
 
@@ -133,7 +141,7 @@ def main() -> int:
         page = ctx.new_page()
         for kind, url in URLS.items():
             try:
-                current[kind] = scrape_url(page, url)
+                current[kind] = scrape_url(page, url, kind)
             except Exception as e:
                 print(f"ERR {kind}: {e}", file=sys.stderr)
                 current[kind] = seen.get(kind, {})
