@@ -23,7 +23,7 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --quiet --upgrade pip
-          python -m pip install --quiet playwright playwright-stealth httpx
+          python -m pip install --quiet -r requirements.txt
       - name: Cache Playwright browsers
         id: pw-cache
         uses: actions/cache@v4
